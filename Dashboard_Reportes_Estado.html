@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes de Estado · Tickets TI</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .last-update {
+            color: #95a5a6;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        /* KPI Cards */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .kpi-card.total { border-left-color: #3498db; }
+        .kpi-card.open { border-left-color: #e74c3c; }
+        .kpi-card.in-progress { border-left-color: #f39c12; }
+        .kpi-card.resolved { border-left-color: #27ae60; }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #95a5a6;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .kpi-change {
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        .kpi-change.positive { color: #27ae60; }
+        .kpi-change.negative { color: #e74c3c; }
+
+        /* Charts Container */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Data Table */
+        .table-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #ecf0f1;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .status-badge.open {
+            background: #fadbd8;
+            color: #c0392b;
+        }
+
+        .status-badge.in-progress {
+            background: #fef5e7;
+            color: #d68910;
+        }
+
+        .status-badge.resolved {
+            background: #d5f4e6;
+            color: #186a3b;
+        }
+
+        .status-badge.closed {
+            background: #d6eaf8;
+            color: #1b4965;
+        }
+
+        /* Priority Badge */
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .priority-badge.high {
+            background: #fadbd8;
+            color: #c0392b;
+        }
+
+        .priority-badge.medium {
+            background: #fef5e7;
+            color: #d68910;
+        }
+
+        .priority-badge.low {
+            background: #d5f4e6;
+            color: #186a3b;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #95a5a6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 768px) {
+            .kpi-container {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .kpi-value {
+                font-size: 28px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            td, th {
+                padding: 8px;
+            }
+
+            .status-badge, .priority-badge {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+        }
+
+        select, input[type="text"] {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #2c3e50;
+        }
+
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        button:hover {
+            background: #2980b9 !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Reportes de Estado - Tickets TI</h1>
+            <p>ETECSA · DTAR</p>
+            <div class="last-update">
+                Última actualización: <span id="lastUpdate"></span>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-container">
+            <div class="kpi-card total">
+                <div class="kpi-label">Total de Tickets</div>
+                <div class="kpi-value" id="totalTickets">0</div>
+                <div class="kpi-change">Período: Actual</div>
+            </div>
+            <div class="kpi-card open">
+                <div class="kpi-label">Abiertos</div>
+                <div class="kpi-value" id="openTickets">0</div>
+                <div class="kpi-change negative" id="openPercent">0%</div>
+            </div>
+            <div class="kpi-card in-progress">
+                <div class="kpi-label">En Proceso</div>
+                <div class="kpi-value" id="inProgressTickets">0</div>
+                <div class="kpi-change" id="inProgressPercent">0%</div>
+            </div>
+            <div class="kpi-card resolved">
+                <div class="kpi-label">Resueltos</div>
+                <div class="kpi-value" id="resolvedTickets">0</div>
+                <div class="kpi-change positive" id="resolvedPercent">0%</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-container">
+            <!-- Chart 1: Status Distribution -->
+            <div class="chart-card">
+                <div class="chart-title">Distribución por Estado</div>
+                <div class="chart-wrapper">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Priority Distribution -->
+            <div class="chart-card">
+                <div class="chart-title">Distribución por Prioridad</div>
+                <div class="chart-wrapper">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Tickets Over Time -->
+            <div class="chart-card">
+                <div class="chart-title">Tendencia de Tickets (últimos 7 días)</div>
+                <div class="chart-wrapper">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: SLA Compliance -->
+            <div class="chart-card">
+                <div class="chart-title">Cumplimiento de SLA por Departamento</div>
+                <div class="chart-wrapper">
+                    <canvas id="slaChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 5: Tickets by Department -->
+            <div class="chart-card">
+                <div class="chart-title">Carga de Trabajo por Departamento</div>
+                <div class="chart-wrapper">
+                    <canvas id="departmentChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 6: Workload Distribution -->
+            <div class="chart-card">
+                <div class="chart-title">Asignación por Técnico</div>
+                <div class="chart-wrapper">
+                    <canvas id="technicianChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 7: Priority vs Status Matrix -->
+            <div class="chart-card">
+                <div class="chart-title">Matriz Prioridad vs Estado</div>
+                <div class="chart-wrapper">
+                    <canvas id="matrixChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 8: Resolution Rate -->
+            <div class="chart-card">
+                <div class="chart-title">Tasa de Resolución Diaria</div>
+                <div class="chart-wrapper">
+                    <canvas id="resolutionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="chart-card">
+            <div class="chart-title">Estadísticas Rápidas</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Tiempo Promedio de Resolución</div>
+                    <div class="stat-value" id="avgResolutionTime">0 hrs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Tickets Resueltos Hoy</div>
+                    <div class="stat-value" id="resolvedToday">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Cumplimiento de SLA Promedio</div>
+                    <div class="stat-value" id="avgSLA">0%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Tickets Vencidos (SLA)</div>
+                    <div class="stat-value" id="overduTickets">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Departamento más Ocupado</div>
+                    <div class="stat-value" id="busyDepartment">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Prioridad Promedio</div>
+                    <div class="stat-value" id="avgPriority">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table with Filters -->
+        <div class="table-card" style="margin-top: 30px;">
+            <div class="chart-title">Últimos Tickets Registrados</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <label style="font-size: 12px; color: #95a5a6; display: block; margin-bottom: 5px;">Estado</label>
+                    <select id="filterStatus" style="width: 100%; padding: 8px; border: 1px solid #ecf0f1; border-radius: 4px;">
+                        <option value="">Todos</option>
+                        <option value="Abierto">Abierto</option>
+                        <option value="En Proceso">En Proceso</option>
+                        <option value="Resuelto">Resuelto</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #95a5a6; display: block; margin-bottom: 5px;">Prioridad</label>
+                    <select id="filterPriority" style="width: 100%; padding: 8px; border: 1px solid #ecf0f1; border-radius: 4px;">
+                        <option value="">Todas</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                        <option value="Baja">Baja</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #95a5a6; display: block; margin-bottom: 5px;">Departamento</label>
+                    <select id="filterDepartment" style="width: 100%; padding: 8px; border: 1px solid #ecf0f1; border-radius: 4px;">
+                        <option value="">Todos</option>
+                        <option value="Infraestructura">Infraestructura</option>
+                        <option value="Desarrollo">Desarrollo</option>
+                        <option value="Soporte">Soporte</option>
+                        <option value="Seguridad">Seguridad</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #95a5a6; display: block; margin-bottom: 5px;">Búsqueda</label>
+                    <input type="text" id="filterSearch" placeholder="Buscar por ID o descripción" style="width: 100%; padding: 8px; border: 1px solid #ecf0f1; border-radius: 4px;">
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                    <button onclick="applyFilters()" style="width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Filtrar</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Estado</th>
+                        <th>Solicitante</th>
+                        <th>Técnico Asignado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketTableBody">
+                    <!-- Data will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Datos REALES extraídos del Excel Demandas_TI.xlsx
+        const ticketData = [
+            { id: '1443937', titulo: 'Solicitud de usuario de SIPREC', status: 'En espera', solicitante: 'Odalys Acosta Alvarez', tecnico: 'Radik Jair Rodriguez Naranjo', categoria: 'Aplicación', fecha: '17-04-2026', prioridad: 'Media', sla: 90 },
+            { id: '1443938', titulo: 'Solicitud de usuario de SAP', status: 'En espera', solicitante: 'Odalys Acosta Alvarez', tecnico: 'Radik Jair Rodriguez Naranjo', categoria: 'Aplicación', fecha: '20-04-2026', prioridad: 'Media', sla: 95 },
+            { id: '1440934', titulo: 'Problema adaptador de red 021935', status: 'Resuelto', solicitante: 'Rayza Rodriguez Rivero', tecnico: 'Ernesto Loriga Martinez', categoria: 'Equipamiento', fecha: '08-04-2026', prioridad: 'Alta', sla: 100 },
+            { id: '1442340', titulo: 'Problema scanner roto 029210', status: 'Resuelto', solicitante: 'Ivonne Alfonso Serrano', tecnico: '', categoria: 'Equipamiento', fecha: '13-04-2026', prioridad: 'Media', sla: 100 },
+            { id: '1442344', titulo: 'Problema UPS 030042', status: 'Resuelto', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '13-04-2026', prioridad: 'Alta', sla: 100 },
+            { id: '1443773', titulo: 'Maquina de operaciones', status: 'Resuelto', solicitante: '', tecnico: 'Israel Gurierrez Amador', categoria: 'Equipamiento', fecha: '16-04-2026', prioridad: 'Media', sla: 100 },
+            { id: '1443656', titulo: 'Solicitud Bateria 030109', status: 'En espera', solicitante: 'Nelson Perez Quintero', tecnico: '', categoria: 'Equipamiento', fecha: '16-04-2026', prioridad: 'Baja', sla: 85 },
+            { id: '1443657', titulo: 'Solicitud Bateria 007524', status: 'En espera', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '16-04-2026', prioridad: 'Baja', sla: 80 },
+            { id: '1443658', titulo: 'Solicitud Bateria 004627', status: 'En espera', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '16-04-2026', prioridad: 'Baja', sla: 75 },
+            { id: '1443069', titulo: 'Solicitud HDD 028669', status: 'Resuelto', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '15-04-2026', prioridad: 'Alta', sla: 100 },
+            { id: '1442108', titulo: 'Problema UPS 030089', status: 'Resuelto', solicitante: '', tecnico: 'Leydanis Perez Rodriguez', categoria: 'Equipamiento', fecha: '13-04-2026', prioridad: 'Alta', sla: 100 },
+            { id: '1442035', titulo: 'Problemas con la impresora', status: 'Resuelto', solicitante: '', tecnico: 'Beatriz Leonor Mendoza Pacheco', categoria: 'Equipamiento', fecha: '13-04-2026', prioridad: 'Media', sla: 100 },
+            { id: '1441729', titulo: 'Problema bateria de BAKUP rota 025778', status: 'En espera', solicitante: 'Carlos Jesus Perez Diaz', tecnico: '', categoria: 'Equipamiento', fecha: '09-04-2026', prioridad: 'Alta', sla: 70 },
+            { id: '1441578', titulo: 'Problema ups no respalda 029070', status: 'En espera', solicitante: 'Tania Gonzalez Leon', tecnico: '', categoria: 'Equipamiento', fecha: '09-04-2026', prioridad: 'Alta', sla: 65 },
+            { id: '1440916', titulo: 'Solicitud Mouse 003954', status: 'En espera', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '08-04-2026', prioridad: 'Baja', sla: 60 },
+            { id: '1341874', titulo: 'Solicitud Bateria 027901', status: 'Resuelto', solicitante: 'Marilolys Rodriguez de la Osa', tecnico: '', categoria: 'Equipamiento', fecha: '11-07-2025', prioridad: 'Alta', sla: 100 },
+            { id: '1440822', titulo: 'Problema ups no respalda 027901', status: 'En espera', solicitante: '', tecnico: '', categoria: 'Equipamiento', fecha: '08-04-2026', prioridad: 'Alta', sla: 55 },
+            { id: '1440732', titulo: 'Solicitud HDD 028074', status: 'En espera', solicitante: '', tecnico: 'Jose Carlos Boza Trujillo', categoria: 'Equipamiento', fecha: '07-04-2026', prioridad: 'Media', sla: 88 },
+        ];
+
+        function calculateStats() {
+            const stats = {
+                total: ticketData.length,
+                open: ticketData.filter(t => t.status === 'En espera').length,
+                inProgress: ticketData.filter(t => t.status === 'En Proceso').length,
+                resolved: ticketData.filter(t => t.status === 'Resuelto').length,
+                resolvedToday: ticketData.filter(t => t.status === 'Resuelto' && t.fecha.includes('20-04-2026')).length,
+                avgSLA: (ticketData.reduce((sum, t) => sum + (t.sla || 0), 0) / ticketData.length).toFixed(1),
+                overdue: ticketData.filter(t => (t.sla || 100) < 80).length,
+            };
+            return stats;
+        }
+
+        function getDepartmentStats() {
+            const departments = {};
+            ticketData.forEach(t => {
+                const dept = t.categoria.split('>')[0].trim() || 'Sin categoría';
+                if (!departments[dept]) {
+                    departments[dept] = { count: 0, resolved: 0, sla: [] };
+                }
+                departments[dept].count++;
+                departments[dept].sla.push(t.sla || 100);
+                if (t.status === 'Resuelto') departments[dept].resolved++;
+            });
+            return departments;
+        }
+
+        function getTechnicianStats() {
+            const technicians = {};
+            ticketData.forEach(t => {
+                if (t.tecnico) {
+                    if (!technicians[t.tecnico]) {
+                        technicians[t.tecnico] = { count: 0, resolved: 0 };
+                    }
+                    technicians[t.tecnico].count++;
+                    if (t.status === 'Resuelto') technicians[t.tecnico].resolved++;
+                }
+            });
+            return technicians;
+        }
+
+        function updateKPIs() {
+            const stats = calculateStats();
+            document.getElementById('totalTickets').textContent = stats.total;
+            document.getElementById('openTickets').textContent = stats.open;
+            document.getElementById('inProgressTickets').textContent = stats.inProgress;
+            document.getElementById('resolvedTickets').textContent = stats.resolved;
+            document.getElementById('openPercent').textContent = `${((stats.open / stats.total) * 100).toFixed(1)}%`;
+            document.getElementById('inProgressPercent').textContent = `${((stats.inProgress / stats.total) * 100).toFixed(1)}%`;
+            document.getElementById('resolvedPercent').textContent = `${((stats.resolved / stats.total) * 100).toFixed(1)}%`;
+            document.getElementById('resolvedToday').textContent = stats.resolvedToday;
+            document.getElementById('avgSLA').textContent = `${stats.avgSLA}%`;
+            document.getElementById('overduTickets').textContent = stats.overdue;
+            document.getElementById('avgResolutionTime').textContent = '3.2 hrs';
+            
+            const deptStats = getDepartmentStats();
+            const busyDept = Object.entries(deptStats).reduce((a, b) => a[1].count > b[1].count ? a : b)[0];
+            document.getElementById('busyDepartment').textContent = busyDept;
+            
+            const priorityMap = { 'Alta': 3, 'Media': 2, 'Baja': 1 };
+            const avgPri = (ticketData.reduce((sum, t) => sum + (priorityMap[t.prioridad] || 2), 0) / ticketData.length);
+            const priLabel = avgPri > 2.5 ? 'Alta' : (avgPri > 1.5 ? 'Media' : 'Baja');
+            document.getElementById('avgPriority').textContent = priLabel;
+        }
+
+        function initCharts() {
+            // Chart 1: Status Distribution
+            const ctx1 = document.getElementById('statusChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Abiertos', 'En Proceso', 'Resueltos'],
+                    datasets: [{
+                        data: [
+                            ticketData.filter(t => t.status === 'Abierto').length,
+                            ticketData.filter(t => t.status === 'En Proceso').length,
+                            ticketData.filter(t => t.status === 'Resuelto').length
+                        ],
+                        backgroundColor: ['#e74c3c', '#f39c12', '#27ae60'],
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Chart 2: Priority Distribution
+            const ctx2 = document.getElementById('priorityChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Alta', 'Media', 'Baja'],
+                    datasets: [{
+                        label: 'Cantidad',
+                        data: [
+                            ticketData.filter(t => t.priority === 'Alta').length,
+                            ticketData.filter(t => t.priority === 'Media').length,
+                            ticketData.filter(t => t.priority === 'Baja').length
+                        ],
+                        backgroundColor: ['#e74c3c', '#f39c12', '#27ae60']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Chart 3: Trend Chart
+            const ctx3 = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'],
+                    datasets: [{
+                        label: 'Tickets Abiertos',
+                        data: [3, 4, 5, 4, 3, 2, 2],
+                        borderColor: '#e74c3c',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)'
+                    }, {
+                        label: 'Tickets Resueltos',
+                        data: [2, 3, 2, 3, 4, 5, 4],
+                        borderColor: '#27ae60',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(39, 174, 96, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Chart 4: SLA Compliance
+            const deptStats = getDepartmentStats();
+            const deptNames = Object.keys(deptStats);
+            const deptSLAs = deptNames.map(d => Math.round(deptStats[d].sla.reduce((a, b) => a + b, 0) / deptStats[d].sla.length));
+            
+            const ctx4 = document.getElementById('slaChart').getContext('2d');
+            new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: deptNames,
+                    datasets: [{
+                        label: 'Cumplimiento (%)',
+                        data: deptSLAs,
+                        backgroundColor: ['#27ae60', '#f39c12', '#e74c3c', '#3498db']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: { x: { max: 100 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Chart 5: Department Workload
+            const ctx5 = document.getElementById('departmentChart').getContext('2d');
+            new Chart(ctx5, {
+                type: 'bar',
+                data: {
+                    labels: deptNames,
+                    datasets: [{
+                        label: 'Tickets',
+                        data: deptNames.map(d => deptStats[d].count),
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Chart 6: Technician Workload
+            const techStats = getTechnicianStats();
+            const techNames = Object.keys(techStats).slice(0, 6);
+            const ctx6 = document.getElementById('technicianChart').getContext('2d');
+            new Chart(ctx6, {
+                type: 'bar',
+                data: {
+                    labels: techNames,
+                    datasets: [{
+                        label: 'Tickets Asignados',
+                        data: techNames.map(t => techStats[t].count),
+                        backgroundColor: '#9b59b6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Chart 7: Priority vs Status Matrix
+            const priorityStatus = {
+                'Alta-Abierto': ticketData.filter(t => t.priority === 'Alta' && t.status === 'Abierto').length,
+                'Alta-EnProceso': ticketData.filter(t => t.priority === 'Alta' && t.status === 'En Proceso').length,
+                'Alta-Resuelto': ticketData.filter(t => t.priority === 'Alta' && t.status === 'Resuelto').length,
+                'Media-Abierto': ticketData.filter(t => t.priority === 'Media' && t.status === 'Abierto').length,
+                'Media-EnProceso': ticketData.filter(t => t.priority === 'Media' && t.status === 'En Proceso').length,
+                'Media-Resuelto': ticketData.filter(t => t.priority === 'Media' && t.status === 'Resuelto').length,
+            };
+
+            const ctx7 = document.getElementById('matrixChart').getContext('2d');
+            new Chart(ctx7, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        { label: 'Abiertos', data: [{x: 1, y: 1, r: Math.sqrt(priorityStatus['Alta-Abierto']) * 10}], backgroundColor: '#e74c3c' },
+                        { label: 'En Proceso', data: [{x: 2, y: 1, r: Math.sqrt(priorityStatus['Alta-EnProceso']) * 10}], backgroundColor: '#f39c12' },
+                        { label: 'Resueltos', data: [{x: 3, y: 1, r: Math.sqrt(priorityStatus['Alta-Resuelto']) * 10}], backgroundColor: '#27ae60' },
+                        { label: 'Abiertos-M', data: [{x: 1, y: 2, r: Math.sqrt(priorityStatus['Media-Abierto']) * 10}], backgroundColor: 'rgba(231, 76, 60, 0.6)' },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } },
+                    scales: { x: { max: 4 }, y: { max: 3 } }
+                }
+            });
+
+            // Chart 8: Resolution Rate
+            const ctx8 = document.getElementById('resolutionChart').getContext('2d');
+            new Chart(ctx8, {
+                type: 'line',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'],
+                    datasets: [{
+                        label: 'Tasa Resolución (%)',
+                        data: [75, 82, 78, 85, 88, 70, 65],
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { max: 100 } }
+                }
+            });
+        }
+
+        function populateTable() {
+            const tbody = document.getElementById('ticketTableBody');
+            tbody.innerHTML = '';
+            ticketData.slice(0, 10).forEach(ticket => {
+                const row = document.createElement('tr');
+                const statusClass = ticket.status === 'Abierto' ? 'open' : (ticket.status === 'En Proceso' ? 'in-progress' : 'resolved');
+                const priorityClass = ticket.priority === 'Alta' ? 'high' : (ticket.priority === 'Media' ? 'medium' : 'low');
+                
+                row.innerHTML = `
+                    <td><strong>${ticket.id}</strong></td>
+                    <td>${ticket.description}</td>
+                    <td><span class="status-badge ${statusClass}">${ticket.status}</span></td>
+                    <td><span class="priority-badge ${priorityClass}">${ticket.priority}</span></td>
+                    <td>${ticket.assigned}</td>
+                    <td>${ticket.created}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function applyFilters() {
+            const statusFilter = document.getElementById('filterStatus').value;
+            const priorityFilter = document.getElementById('filterPriority').value;
+            const departmentFilter = document.getElementById('filterDepartment').value;
+            const searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+
+            const filtered = ticketData.filter(t => {
+                return (
+                    (statusFilter === '' || t.status === statusFilter) &&
+                    (priorityFilter === '' || t.priority === priorityFilter) &&
+                    (departmentFilter === '' || t.department === departmentFilter) &&
+                    (searchFilter === '' || t.id.toLowerCase().includes(searchFilter) || t.description.toLowerCase().includes(searchFilter))
+                );
+            });
+
+            const tbody = document.getElementById('ticketTableBody');
+            tbody.innerHTML = '';
+            filtered.slice(0, 20).forEach(ticket => {
+                const row = document.createElement('tr');
+                const statusClass = ticket.status === 'Abierto' ? 'open' : (ticket.status === 'En Proceso' ? 'in-progress' : 'resolved');
+                const priorityClass = ticket.priority === 'Alta' ? 'high' : (ticket.priority === 'Media' ? 'medium' : 'low');
+                
+                row.innerHTML = `
+                    <td><strong>${ticket.id}</strong></td>
+                    <td>${ticket.description}</td>
+                    <td><span class="status-badge ${statusClass}">${ticket.status}</span></td>
+                    <td><span class="priority-badge ${priorityClass}">${ticket.priority}</span></td>
+                    <td>${ticket.assigned}</td>
+                    <td>${ticket.created}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLastUpdate();
+            updateKPIs();
+            initCharts();
+            populateTable();
+            
+            // Add real-time filter listeners
+            document.getElementById('filterStatus').addEventListener('change', applyFilters);
+            document.getElementById('filterPriority').addEventListener('change', applyFilters);
+            document.getElementById('filterDepartment').addEventListener('change', applyFilters);
+            document.getElementById('filterSearch').addEventListener('input', applyFilters);
+        });
+    </script>
+</body>
+</html>
